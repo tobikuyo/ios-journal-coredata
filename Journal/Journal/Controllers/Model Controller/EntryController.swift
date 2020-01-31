@@ -99,29 +99,30 @@ class EntryController {
         var entriesToCreate = representationsByID
         
         let context = CoreDataTask.shared.mainContext
-        
-        do {
-            let fetchRequest: NSFetchRequest<Entry> = Entry.fetchRequest()
-            fetchRequest.predicate = NSPredicate(format: "identifier IN %@", identifiersToFetch)
-            let existingEntries = try context.fetch(fetchRequest)
-            
-            for entry in existingEntries {
-                guard let identifier = entry.identifier,
-                    let representation = representationsByID[identifier] else { return }
-                entry.title = representation.title
-                entry.bodyText = representation.bodyText
-                entry.timeStamp = representation.timeStamp
-                entry.mood = representation.mood
+        context.performAndWait {
+            do {
+                let fetchRequest: NSFetchRequest<Entry> = Entry.fetchRequest()
+                fetchRequest.predicate = NSPredicate(format: "identifier IN %@", identifiersToFetch)
+                let existingEntries = try context.fetch(fetchRequest)
                 
-                entriesToCreate.removeValue(forKey: identifier)
-                
-                for representation in entriesToCreate.values {
-                    Entry(entryRepresentation: representation, context: context)
+                for entry in existingEntries {
+                    guard let identifier = entry.identifier,
+                        let representation = representationsByID[identifier] else { return }
+                    entry.title = representation.title
+                    entry.bodyText = representation.bodyText
+                    entry.timeStamp = representation.timeStamp
+                    entry.mood = representation.mood
+                    
+                    entriesToCreate.removeValue(forKey: identifier)
+                    
+                    for representation in entriesToCreate.values {
+                        Entry(entryRepresentation: representation, context: context)
+                    }
+                    save(context: context)
                 }
-                saveToPersistentStore()
+            } catch {
+                NSLog("Error fetching entries from persistent stores: \(error)")
             }
-        } catch {
-            NSLog("Error fetching entries from persistent stores: \(error)")
         }
     }
     
@@ -160,19 +161,21 @@ class EntryController {
         }.resume()
     }
     
-    func saveToPersistentStore() {
-        do {
-            try CoreDataTask.shared.mainContext.save()
-        } catch {
-            NSLog("Error saving context: \(error)")
-            CoreDataTask.shared.mainContext.reset()
+    func save(context: NSManagedObjectContext = CoreDataTask.shared.mainContext) {
+        context.performAndWait {
+            do {
+                try CoreDataTask.shared.mainContext.save()
+            } catch {
+                NSLog("Error saving context: \(error)")
+                CoreDataTask.shared.mainContext.reset()
+            }
         }
     }
     
     @discardableResult func createEntry(called title: String, bodyText: String, timeStamp: Date, mood: Mood) -> Entry {
         let entry = Entry(title: title, bodyText: bodyText, timeStamp: timeStamp, mood: mood, context: CoreDataTask.shared.mainContext)
         put(entry: entry)
-        saveToPersistentStore()
+        save()
         return entry
     }
     
@@ -182,12 +185,12 @@ class EntryController {
         entry.timeStamp = timeStamp
         entry.mood = mood
         put(entry: entry)
-        saveToPersistentStore()
+        save()
     }
     
     func delete(entry: Entry) {
         CoreDataTask.shared.mainContext.delete(entry)
         deleteEntryFromServer(entry: entry)
-        saveToPersistentStore()
+        save()
     }
 }

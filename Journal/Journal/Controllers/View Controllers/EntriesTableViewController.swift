@@ -69,7 +69,7 @@ class EntriesTableViewController: UITableViewController {
             entryController.delete(entry: entry)
             
             CoreDataTask.shared.mainContext.delete(entry)
-            entryController.saveToPersistentStore()
+            entryController.save()
         }
     }
 

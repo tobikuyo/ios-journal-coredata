@@ -38,6 +38,7 @@ class EntryDetailViewController: UIViewController {
         } else {
             entryController?.createEntry(called: title, bodyText: bodyText, timeStamp: Date(), mood: mood)
         }
+        
         navigationController?.popViewController(animated: true)
     }
     
